@@ -18,13 +18,30 @@ client.on('ready', () => {
 });
 
 client.on('messageCreate', (message) => {
+
+    function getUserFromMention(mention) {
+        if (!mention) return;
+    
+        if (mention.startsWith('<@') && mention.endsWith('>')) {
+            mention = mention.slice(2, -1);
+    
+            if (mention.startsWith('!')) {
+                mention = mention.slice(1);
+            }
+    
+            return client.users.cache.get(mention);
+        }
+    }
+
     var userData = JSON.parse(fs.readFileSync('./src/storage/userData.json', 'utf8'));
     if (message.author.bot) return;
     if (message.content.startsWith(PREFIX)){
-        const [CMD_NAME, ...args] = message.content
+        let [CMD_NAME, ...args] = message.content
         .trim()
         .substring(PREFIX.length)
         .split(/\s+/);
+
+        CMD_NAME = CMD_NAME.toLowerCase();
         if (CMD_NAME === 'play'){
 
 
@@ -35,7 +52,7 @@ client.on('messageCreate', (message) => {
             console.log(answer);
 
             let randomNumberList = []
-            randomNumberList.length = Math.floor(answer.length / 2)
+            randomNumberList.length = Math.floor(answer.length / 1.5)
             
             
             for(let i = 0; i < randomNumberList.length; i++){
@@ -58,7 +75,7 @@ client.on('messageCreate', (message) => {
             let filter = msg => {
                 return msg.content === answer && !message.author.bot
             }
-            let collector = message.channel.createMessageCollector({filter, time: 10000, max: 1})
+            let collector = message.channel.createMessageCollector({filter, time: 20000, max: 1})
 
             collector.on('collect', (msg) => {
 
@@ -73,7 +90,7 @@ client.on('messageCreate', (message) => {
                 if(!userData[msg.author.id]) userData[message.author.id] = {
                     points : 0
                 }
-                userData[msg.author.id].points += answer.length;
+                userData[msg.author.id].points += pointsWorth;
                 console.log(msg.author.id)
                 // To input point values to the winners of the word game
                  fs.writeFile('./src/storage/userData.json', JSON.stringify(userData), (err) => {
@@ -94,15 +111,40 @@ client.on('messageCreate', (message) => {
             //display the hint letters and amount of missing characters
             const exampleEmbed = new MessageEmbed()
                     .setColor('#848484')
-                    .setTitle(`The word is worth **${pointsWorth}**`)
+                    .setTitle(`The word is worth **${pointsWorth}** points`)
                     .setDescription(`${hints.join(" ")}`)
+                    .addFields(
+                        { name: 'Letters', value: `${answer.length}` },
+                    )
                 message.channel.send({ embeds: [exampleEmbed] });
         }
 
         if (CMD_NAME === "points") {
-            message.channel.send(`You currently have **${userData[message.author.id].points}** points.`)
+            if(args[0] !== undefined) {
+                let user = getUserFromMention(args[0]);
+                message.reply(`${user.username} currently has ${userData[args[0].slice(3,-1)].points} points`)
+            } else {
+            message.reply(`You currently have **${userData[message.author.id].points}** points.`)
+            }
         }
-
+        if(CMD_NAME === "hint"){
+            message.reply('lick my balls');
+        }
+        if(CMD_NAME === "help"){
+            const exampleEmbed = new MessageEmbed()
+                    .setColor('#000000')
+                    .setTitle(`**Commands**`)
+                    .addFields(
+                        { name: 'play', value: `play da game` },
+                        { name: 'points', value: `see how much you're worth`},
+                        { name: 'hint', value: `no hints you fking retard`},
+                        { name: 'shae', value: `find your yourself shaymin`},
+                    )
+            message.channel.send({ embeds: [exampleEmbed] });
+        }
+        if(CMD_NAME === "shae"){
+            message.channel.send("<@647250920069005322> https://cdn.discordapp.com/emojis/883589510796025939.webp?size=96&quality=lossless")
+        }
         
     }
 });
