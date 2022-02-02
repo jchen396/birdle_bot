@@ -1,12 +1,14 @@
 require('dotenv').config();
 wordList = require('../wordlist.json')
-birdleList = wordList.filter(word => word.length == 5);
-const fs = require('fs') // we need to require fs to packaged with node
+birdleList = wordList.filter(word => word.length > 5);
 
-var userData = JSON.parse(fs.readFileSync('../storage/userData.json', 'utf8'));
+const fs = require('fs'); // we need to require fs to packaged with node
+
+
+
 
 const { MessageEmbed } = require('discord.js');
-const { Client, Intents, ClientVoiceManager } = require('discord.js');
+const { Client, Intents } = require('discord.js');
 const { sensitiveHeaders } = require('http2');
 const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES] });
 const PREFIX = "$"
@@ -15,7 +17,8 @@ client.on('ready', () => {
     console.log(`${client.user.tag} has logged in.`)
 });
 
-client.on('message', (message) => {
+client.on('messageCreate', (message) => {
+    var userData = JSON.parse(fs.readFileSync('./src/storage/userData.json', 'utf8'));
     if (message.author.bot) return;
     if (message.content.startsWith(PREFIX)){
         const [CMD_NAME, ...args] = message.content
@@ -23,7 +26,8 @@ client.on('message', (message) => {
         .substring(PREFIX.length)
         .split(/\s+/);
         if (CMD_NAME === 'play'){
-            console.log(message)
+
+
             let answer = birdleList[Math.floor(Math.random() * 472)];
             let hints = [];
             hints.length = answer.length
@@ -44,14 +48,26 @@ client.on('message', (message) => {
             let filter = msg => {
                 return msg.content === answer && !message.author.bot
             }
-            let collector = message.channel.createMessageCollector({filter, time: 1000, max: 1})
+            let collector = message.channel.createMessageCollector({filter, time: 10000, max: 1})
 
             collector.on('collect', (msg) => {
                 const exampleEmbed = new MessageEmbed()
                     .setColor('#00ff33')
-                    .setTitle(`Congratulations, ${msg.author.username}`)
-                    .setDescription(`The answer was ${answer.toUpperCase()}`)
+                    .setTitle(`Congratulations, ${msg.author.username}!`)
+                    .setDescription(`The answer was ${answer.toUpperCase()}.`)
+                    .addFields(
+                        { name: 'Points earned', value: `${answer.length}` },
+                    )
                 msg.channel.send({ embeds: [exampleEmbed] });
+                if(!userData[msg.author.id]) userData[message.author.id] = {
+                    points : 0
+                }
+                userData[msg.author.id].points += answer.length;
+                console.log(msg.author.id)
+                // To input point values to the winners of the word game
+                 fs.writeFile('./src/storage/userData.json', JSON.stringify(userData), (err) => {
+                    if (err) console.error(err)
+                });
             })
 
             collector.on('end', (collected, reason) => {
@@ -66,17 +82,11 @@ client.on('message', (message) => {
             message.reply(hints.join(" "));
         }
 
-        if(!userData[sender.id]) userData[sender.id] = {
-            points : 0
+        if (CMD_NAME === "points") {
+            message.channel.send(`You currently have **${userData[message.author.id].points}** points.`)
         }
 
-        //
-        userData[sender.id].point++;
-
-        // To input point values to the winners of the word game
-        fs.writeFile('..storage/userData.json', JSON.stringify(userData), (err) => {
-            if (err) console.error(err)
-        });
+        
     }
 });
 client.login(process.env.DISCORDJS_BOT_TOKEN);
