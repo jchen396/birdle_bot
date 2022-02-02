@@ -32,31 +32,42 @@ client.on('messageCreate', (message) => {
             let hints = [];
             hints.length = answer.length
             hints.fill(":black_large_square:")
+            console.log(answer);
 
-            let random_letter1 = Math.floor(Math.random() * 5); //generate 1st letters placements for visibility hints
-            let random_letter2 = Math.floor(Math.random() * 5); //generate 2nd letters placements for visibility hints
-            while (random_letter1 === random_letter2){
-                random_letter2 = Math.floor(Math.random() * 5)
-            }
-            console.log(answer)
-            //converting letter placements into actual letters
-            let letter_hint1 = `:regional_indicator_${answer[random_letter1]}: `
-            let letter_hint2 = `:regional_indicator_${answer[random_letter2]}: `            
-            hints[random_letter1] = letter_hint1
-            hints[random_letter2] = letter_hint2
+            let randomNumberList = []
+            randomNumberList.length = Math.floor(answer.length / 2)
             
+            
+            for(let i = 0; i < randomNumberList.length; i++){
+                randomNumberList[i] = Math.floor(Math.random() * randomNumberList.length);
+            }
+            
+            //converting letter placements into actual letters
+            randomNumberList.forEach( element => {
+                hints[randomNumberList[element]] = `:regional_indicator_${answer[randomNumberList[element]]}:` 
+            })
+
+            let hintsValue = 0
+            hints.forEach(elements => {
+                if (elements === ":black_large_square:"){
+                    hintsValue += 1;
+                }
+            })
+            pointsWorth = answer.length * hintsValue;
+
             let filter = msg => {
                 return msg.content === answer && !message.author.bot
             }
             let collector = message.channel.createMessageCollector({filter, time: 10000, max: 1})
 
             collector.on('collect', (msg) => {
+
                 const exampleEmbed = new MessageEmbed()
                     .setColor('#00ff33')
                     .setTitle(`Congratulations, ${msg.author.username}!`)
                     .setDescription(`The answer was ${answer.toUpperCase()}.`)
                     .addFields(
-                        { name: 'Points earned', value: `${answer.length}` },
+                        { name: 'Points earned', value: `${pointsWorth}` },
                     )
                 msg.channel.send({ embeds: [exampleEmbed] });
                 if(!userData[msg.author.id]) userData[message.author.id] = {
@@ -75,11 +86,17 @@ client.on('messageCreate', (message) => {
                     const exampleEmbed = new MessageEmbed()
                     .setColor('#ff0000')
                     .setTitle(`Ran out of time!`)
-                    .setDescription(`The answer was ${answer.toUpperCase()}`)
+                    .setDescription(`The answer was ||${answer.toUpperCase()}||`)
                 message.channel.send({ embeds: [exampleEmbed] });
                 } 
             })
-            message.reply(hints.join(" "));
+
+            //display the hint letters and amount of missing characters
+            const exampleEmbed = new MessageEmbed()
+                    .setColor('#848484')
+                    .setTitle(`The word is worth **${pointsWorth}**`)
+                    .setDescription(`${hints.join(" ")}`)
+                message.channel.send({ embeds: [exampleEmbed] });
         }
 
         if (CMD_NAME === "points") {
