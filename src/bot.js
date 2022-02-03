@@ -17,7 +17,7 @@ client.on('ready', () => {
     console.log(`${client.user.tag} has logged in.`)
 });
 
-client.on('messageCreate', (message) => {
+client.on('messageCreate', async message => {
 
     function getUserFromMention(mention) {
         if (!mention) return;
@@ -44,41 +44,44 @@ client.on('messageCreate', (message) => {
         CMD_NAME = CMD_NAME.toLowerCase();
         if (CMD_NAME === 'play'){
 
-
-            let answer = birdleList[Math.floor(Math.random() * 472)];
-            let hints = [];
-            hints.length = answer.length
-            hints.fill(":black_large_square:")
-            console.log(answer);
+            let answer = birdleList[Math.floor(Math.random() * 1131)];
+            let visibleLettersList = [];
+            visibleLettersList.length = answer.length
+            visibleLettersList.fill(":black_large_square:")
 
             let randomNumberList = []
-            randomNumberList.length = Math.floor(answer.length / 1.5)
+            randomNumberList.length = Math.floor(answer.length / 2)
             
             
             for(let i = 0; i < randomNumberList.length; i++){
-                randomNumberList[i] = Math.floor(Math.random() * randomNumberList.length);
+                let ranNum = 0;
+                do {
+                    ranNum = Math.floor(Math.random() * visibleLettersList.length);
+                } while(randomNumberList.includes(ranNum))
+                randomNumberList[i] = ranNum;
             }
-            
             //converting letter placements into actual letters
-            randomNumberList.forEach( element => {
-                hints[randomNumberList[element]] = `:regional_indicator_${answer[randomNumberList[element]]}:` 
-            })
+            for(let i = 0; i < randomNumberList.length; i++){
+                visibleLettersList[randomNumberList[i]] = `:regional_indicator_${answer[randomNumberList[i]]}:`
+            }
+            console.log(answer)
 
-            let hintsValue = 0
-            hints.forEach(elements => {
+            let visibleLettersListValue = 0
+            visibleLettersList.forEach(elements => {
                 if (elements === ":black_large_square:"){
-                    hintsValue += 1;
+                    visibleLettersListValue += 1;
                 }
             })
-            pointsWorth = answer.length * hintsValue;
+            pointsWorth = answer.length * visibleLettersListValue;
 
-            let filter = msg => {
-                return msg.content === answer && !message.author.bot
+
+            //GUESS
+            const filter = msg => {
+                return msg.content === answer && !msg.author.bot
             }
-            let collector = message.channel.createMessageCollector({filter, time: 20000, max: 1})
+            const collector = message.channel.createMessageCollector({filter, time: 30000, max: 1})
 
             collector.on('collect', (msg) => {
-
                 const exampleEmbed = new MessageEmbed()
                     .setColor('#00ff33')
                     .setTitle(`Congratulations, ${msg.author.username}!`)
@@ -87,7 +90,7 @@ client.on('messageCreate', (message) => {
                         { name: 'Points earned', value: `${pointsWorth}` },
                     )
                 msg.channel.send({ embeds: [exampleEmbed] });
-                if(!userData[msg.author.id]) userData[message.author.id] = {
+                if(!userData[msg.author.id]) userData[msg.author.id] = {
                     points : 0
                 }
                 userData[msg.author.id].points += pointsWorth;
@@ -108,11 +111,54 @@ client.on('messageCreate', (message) => {
                 } 
             })
 
-            //display the hint letters and amount of missing characters
+            //HINT
+            const filter1 = msg => {
+                return msg.content === '$hint' && !msg.author.bot
+            }
+            const collector1 = message.channel.createMessageCollector({filter:filter1, time: 30000, max: 3})
+
+            collector1.on('collect', (msg) => {
+                console.log(`hinting: ${msg.content}`)
+                if(!userData[msg.author.id]) userData[msg.author.id] = {
+                    points : 0
+                }
+                if(userData[msg.author.id].points >= 10){
+                    for(let i = 0; i < answer.length; i++){
+                        if(!randomNumberList.includes(i)){
+                            const exampleEmbed = new MessageEmbed()
+                                .setColor('#ffff00')
+                                .setTitle(`Hint`)
+                                .setDescription(`Letter ${i + 1} is **${answer[i].toUpperCase()}**`)
+                                .addFields(
+                                    { name: 'Points lost', value: `10` },
+                                )
+                            msg.reply({ embeds: [exampleEmbed] });
+                            userData[msg.author.id].points -= 10;
+                            fs.writeFile('./src/storage/userData.json', JSON.stringify(userData), (err) => {
+                                if (err) console.error(err)
+                            });
+                            
+                            break;
+                        } 
+                    }
+                 }   else {
+                    const exampleEmbed = new MessageEmbed()
+                        .setColor('#ffff00')
+                        .setTitle(`Hint`)
+                        .setDescription(`Insufficient amount of points to show hints`)
+                    msg.reply({ embeds: [exampleEmbed] });
+                }
+            })
+
+            collector1.on('end', (collected, reason) => {
+
+            })  
+
+            //display the visible letters and amount of missing characters
             const exampleEmbed = new MessageEmbed()
                     .setColor('#848484')
                     .setTitle(`The word is worth **${pointsWorth}** points`)
-                    .setDescription(`${hints.join(" ")}`)
+                    .setDescription(`${visibleLettersList.join(" ")}`)
                     .addFields(
                         { name: 'Letters', value: `${answer.length}` },
                     )
@@ -122,14 +168,12 @@ client.on('messageCreate', (message) => {
         if (CMD_NAME === "points") {
             if(args[0] !== undefined) {
                 let user = getUserFromMention(args[0]);
-                message.reply(`${user.username} currently has ${userData[args[0].slice(3,-1)].points} points`)
+                message.reply(`${user.username} currently has **${userData[args[0].slice(3,-1)].points}** points`)
             } else {
             message.reply(`You currently have **${userData[message.author.id].points}** points.`)
             }
         }
-        if(CMD_NAME === "hint"){
-            message.reply('lick my balls');
-        }
+        
         if(CMD_NAME === "help"){
             const exampleEmbed = new MessageEmbed()
                     .setColor('#000000')
@@ -148,4 +192,6 @@ client.on('messageCreate', (message) => {
         
     }
 });
+
+
 client.login(process.env.DISCORDJS_BOT_TOKEN);
