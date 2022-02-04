@@ -8,8 +8,9 @@ const fs = require('fs'); // we need to require fs to packaged with node
 
 
 const { MessageEmbed } = require('discord.js');
-const { Client, Intents } = require('discord.js');
+const { Client, Intents, MessageActionRow, MessageButton } = require('discord.js');
 const { sensitiveHeaders } = require('http2');
+const { waitForDebugger } = require('inspector');
 const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES] });
 const PREFIX = "$"
 
@@ -64,7 +65,7 @@ client.on('messageCreate', async message => {
             for(let i = 0; i < randomNumberList.length; i++){
                 visibleLettersList[randomNumberList[i]] = `:regional_indicator_${answer[randomNumberList[i]]}:`
             }
-            console.log(answer)
+            console.log(`The word is ${answer.toUpperCase()}`)
 
             let visibleLettersListValue = 0
             visibleLettersList.forEach(elements => {
@@ -94,7 +95,7 @@ client.on('messageCreate', async message => {
                     points : 0
                 }
                 userData[msg.author.id].points += pointsWorth;
-                console.log(msg.author.id)
+                console.log(`${msg.author.username} got the answer: ${answer.toUpperCase()}`)
                 // To input point values to the winners of the word game
                  fs.writeFile('./src/storage/userData.json', JSON.stringify(userData), (err) => {
                     if (err) console.error(err)
@@ -111,42 +112,61 @@ client.on('messageCreate', async message => {
                 } 
             })
 
-            //HINT
-            const filter1 = msg => {
-                return msg.content === '$hint' && !msg.author.bot
-            }
-            const collector1 = message.channel.createMessageCollector({filter:filter1, time: 30000, max: 3})
+            //WORD MESSAGE
 
-            collector1.on('collect', (msg) => {
-                console.log(`hinting: ${msg.content}`)
-                if(!userData[msg.author.id]) userData[msg.author.id] = {
+            const hintButton = new MessageActionRow()
+			.addComponents(
+				new MessageButton()
+					.setCustomId('hint')
+					.setLabel('Hint')
+					.setStyle('PRIMARY'),
+			);
+            const wordEmbed = new MessageEmbed()
+                    .setColor('#848484')
+                    .setTitle(`The word is worth **${pointsWorth}** points`)
+                    .setDescription(`${visibleLettersList.join(" ")}`)
+                    .addFields(
+                        { name: 'Letters', value: `${answer.length}` },
+                    )
+            await message.channel.send({embeds: [wordEmbed], components: [hintButton] });
+            
+            //HINT
+            const filter1 = interaction => {
+                return interaction.customId == 'hint' && !interaction.user.bot
+            }
+            const collector1 = message.channel.createMessageComponentCollector({filter:filter1, time: 30000, max: 1})
+
+            collector1.on('collect', async interaction => {
+                if(!userData[interaction.user.id]) userData[interaction.user.id] = {
                     points : 0
                 }
-                if(userData[msg.author.id].points >= 10){
+                if(userData[interaction.user.id].points >= 10){
                     for(let i = 0; i < answer.length; i++){
                         if(!randomNumberList.includes(i)){
-                            const exampleEmbed = new MessageEmbed()
+                            console.log(`>> ${interaction.user.username} used a hint to find Letter ${i + 1} is ${answer[i].toUpperCase()}`)
+                            const hintEmbed = new MessageEmbed()
                                 .setColor('#ffff00')
                                 .setTitle(`Hint`)
                                 .setDescription(`Letter ${i + 1} is **${answer[i].toUpperCase()}**`)
                                 .addFields(
                                     { name: 'Points lost', value: `10` },
                                 )
-                            msg.reply({ embeds: [exampleEmbed] });
-                            userData[msg.author.id].points -= 10;
+                            await message.reply({ embeds: [hintEmbed], emphemeral: true });
+                            userData[interaction.user.id].points -= 10;
                             fs.writeFile('./src/storage/userData.json', JSON.stringify(userData), (err) => {
                                 if (err) console.error(err)
                             });
-                            
+                            await interaction.deferUpdate();
+                            await interaction.editReply({ content: `${interaction.user.username} used a hint!`, components: [] });
                             break;
                         } 
                     }
                  }   else {
-                    const exampleEmbed = new MessageEmbed()
+                    const hintFailedEmbed = new MessageEmbed()
                         .setColor('#ffff00')
                         .setTitle(`Hint`)
                         .setDescription(`Insufficient amount of points to show hints`)
-                    msg.reply({ embeds: [exampleEmbed] });
+                    message.reply({ embeds: [hintFailedEmbed], emphemeral: true });
                 }
             })
 
@@ -154,15 +174,8 @@ client.on('messageCreate', async message => {
 
             })  
 
-            //display the visible letters and amount of missing characters
-            const exampleEmbed = new MessageEmbed()
-                    .setColor('#848484')
-                    .setTitle(`The word is worth **${pointsWorth}** points`)
-                    .setDescription(`${visibleLettersList.join(" ")}`)
-                    .addFields(
-                        { name: 'Letters', value: `${answer.length}` },
-                    )
-                message.channel.send({ embeds: [exampleEmbed] });
+            
+            
         }
 
         if (CMD_NAME === "points") {
