@@ -7,7 +7,7 @@ const fs = require('fs'); // we need to require fs to packaged with node
 
 
 
-const { MessageEmbed } = require('discord.js');
+const { MessageEmbed, MessageAttachment } = require('discord.js');
 const { Client, Intents, MessageActionRow, MessageButton } = require('discord.js');
 const { sensitiveHeaders } = require('http2');
 const { waitForDebugger } = require('inspector');
@@ -135,31 +135,36 @@ client.on('messageCreate', async message => {
                 return interaction.customId == 'hint' && !interaction.user.bot
             }
             const collector1 = message.channel.createMessageComponentCollector({filter:filter1, time: 30000, max: 1})
-
             collector1.on('collect', async interaction => {
                 if(!userData[interaction.user.id]) userData[interaction.user.id] = {
                     points : 0
                 }
                 if(userData[interaction.user.id].points >= 10){
-                    for(let i = 0; i < answer.length; i++){
-                        if(!randomNumberList.includes(i)){
-                            console.log(`>> ${interaction.user.username} used a hint to find Letter ${i + 1} is ${answer[i].toUpperCase()}`)
-                            const hintEmbed = new MessageEmbed()
-                                .setColor('#ffff00')
-                                .setTitle(`Hint`)
-                                .setDescription(`Letter ${i + 1} is **${answer[i].toUpperCase()}**`)
-                                .addFields(
-                                    { name: 'Points lost', value: `10` },
-                                )
-                            await message.reply({ embeds: [hintEmbed], emphemeral: true });
-                            userData[interaction.user.id].points -= 10;
-                            fs.writeFile('./src/storage/userData.json', JSON.stringify(userData), (err) => {
-                                if (err) console.error(err)
-                            });
-                            await interaction.deferUpdate();
-                            await interaction.editReply({ content: `${interaction.user.username} used a hint!`, components: [] });
-                            break;
-                        } 
+                    try {
+                        for(let i = 0; i < answer.length; i++){
+                            if(!randomNumberList.includes(i)){
+                                    console.log(`>> ${interaction.user.username} used a hint to find Letter ${i + 1} is ${answer[i].toUpperCase()}`)
+                                    await interaction.deferUpdate();
+                                    await interaction.editReply({ content: `${interaction.user.username} used a hint!`, components: [] });
+                                    const hintEmbed = new MessageEmbed()
+                                        .setColor('#ffff00')
+                                        .setTitle(`Hint`)
+                                        .setDescription(`Letter ${i + 1} is **${answer[i].toUpperCase()}**`)
+                                        .addFields(
+                                            { name: 'Points lost', value: `10` },
+                                        )
+                                    await message.reply({ embeds: [hintEmbed], emphemeral: true });
+                                    userData[interaction.user.id].points -= 10;
+                                    fs.writeFile('./src/storage/userData.json', JSON.stringify(userData), (err) => {
+                                        if (err) console.error(err)
+                                    });
+                                    break;
+                                
+                                }
+                            } 
+                    } catch (error) {
+                        console.error(error)
+                        await message.reply("Something went wrong. Please try to not use the hint button when multiple prompts are present. ||you fker stop trying to break my bot||");
                     }
                  }   else {
                     const hintFailedEmbed = new MessageEmbed()
@@ -194,13 +199,37 @@ client.on('messageCreate', async message => {
                     .addFields(
                         { name: 'play', value: `play da game` },
                         { name: 'points', value: `see how much you're worth`},
-                        { name: 'hint', value: `no hints you fking retard`},
                         { name: 'shae', value: `find your yourself shaymin`},
                     )
             message.channel.send({ embeds: [exampleEmbed] });
         }
         if(CMD_NAME === "shae"){
             message.channel.send("<@647250920069005322> https://cdn.discordapp.com/emojis/883589510796025939.webp?size=96&quality=lossless")
+        }
+
+        if(CMD_NAME === "pet"){
+                if(userData[message.author.id].points >= 1000){
+                const exampleEmbed = new MessageEmbed()
+                    .setColor('#793b3b')
+                    .setTitle(`**You bought a goobie!**`)
+                    .setFields(
+                        {name: 'Points lost', value: '1000'}
+                    )
+                    .setThumbnail('https://cdn.drawception.com/images/panels/2017/10-19/T5gxcwASOP-6.png')
+                message.channel.send({ embeds: [exampleEmbed] });
+                userData[message.author.id].points -= 1000;
+                fs.writeFile('./src/storage/userData.json', JSON.stringify(userData), (err) => {
+                    if (err) console.error(err)
+                });
+            } else {
+                const exampleEmbed = new MessageEmbed()
+                    .setColor('#ff0000')
+                    .setTitle('**Insufficient points**')
+                    .setFields(
+                        {name: 'Points needed', value: '1000'}
+                    )
+                    message.channel.send({ embeds: [exampleEmbed] });
+            }
         }
         
     }
