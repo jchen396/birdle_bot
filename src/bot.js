@@ -3,6 +3,7 @@ wordList = require("../wordlist.json");
 birdleList = wordList.filter((word) => word.length > 5);
 
 const fs = require("fs"); // we need to require fs to packaged with node
+const puppeteer = require("puppeteer");
 
 const { MessageEmbed, MessageAttachment } = require("discord.js");
 const {
@@ -285,6 +286,32 @@ client.on("messageCreate", async (message) => {
 					.setFields({ name: "Points needed", value: "1000" });
 				message.channel.send({ embeds: [exampleEmbed] });
 			}
+		}
+		if (CMD_NAME === "ig") {
+			let url = args[0];
+
+			async function scrapeWebsite(url) {
+				try {
+					const browser = await puppeteer.launch({ headless: false });
+					const page = await browser.newPage();
+					await page.setUserAgent(
+						"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4298.0 Safari/537.36"
+					);
+					await page.goto(url);
+					await page.waitForSelector("video");
+					const link = await page.evaluate(() => {
+						return Array.from(
+							document.querySelectorAll("video"),
+							(e) => e.src
+						);
+					});
+					message.reply(`${link}`);
+					await browser.close();
+				} catch (error) {
+					message.reply("Sorry, this video isn't available.");
+				}
+			}
+			scrapeWebsite(url);
 		}
 	}
 });
